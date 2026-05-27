@@ -1,0 +1,13 @@
+.query-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.editor-wrapper {
+  flex: 1;
+  overflow: hidden;
+}

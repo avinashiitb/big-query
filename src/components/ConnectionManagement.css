@@ -1,0 +1,64 @@
+.connection-mgmt {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.new-conn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.new-conn-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-1);
+  border: 1px dashed var(--border-2);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--fg);
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.new-conn-trigger:hover {
+  background: var(--bg-2);
+  border-color: var(--fg-3);
+}
+.new-conn-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.action-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg-2);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.action-btn:hover {
+  background: var(--bg-2);
+  color: var(--fg);
+}
+.connection-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Delete button: hidden until the card is hovered */
+.conn-delete-btn {
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  pointer-events: none;
+}
+.conn-card:hover .conn-delete-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.conn-delete-btn:hover {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.1) !important;
+}
