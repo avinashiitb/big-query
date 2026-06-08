@@ -152,6 +152,14 @@ const DocDbEditor: React.FC<DocDbEditorProps> = ({
     registerCompletions(monaco);
   };
 
+  useEffect(() => {
+    return () => {
+      if (providerRef.current) {
+        providerRef.current.dispose();
+      }
+    };
+  }, []);
+
   return (
     <div className="docdb-editor-wrapper" style={{ height: "100%" }}>
       <Editor

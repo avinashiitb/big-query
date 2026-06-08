@@ -71,7 +71,7 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
         };
 
         const suggestions: any[] = [];
-        const schema: any[] = schemaRef.current;
+        const schema: any[] = schemaRef.current || [];
 
         // ── SQL keywords ──────────────────────────────────────────────
         SQL_KEYWORDS.forEach((kw) => {
@@ -87,14 +87,24 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
 
         // ── Table names with snippet (SELECT * FROM table) ────────────
         schema.forEach((table: any) => {
-          const cols = (table.columns || []).map((c: any) => c.name).join(", ");
+          if (!table || !table.name) return; // Skip invalid tables
+
+          const columnsArray = Array.isArray(table.columns) ? table.columns : [];
+          
+          const getColName = (c: any) => {
+            if (!c) return "";
+            if (typeof c === "string") return c;
+            return c.name || "";
+          };
+
+          const cols = columnsArray.map(getColName).filter(Boolean).join(", ");
 
           // Table name completion
           suggestions.push({
             label: table.name,
             kind: monaco.languages.CompletionItemKind.Class,
             insertText: table.name,
-            detail: `Table (${table.columns?.length || 0} columns)`,
+            detail: `Table (${columnsArray.length} columns)`,
             documentation: cols ? `Columns: ${cols}` : undefined,
             range,
             sortText: "a" + table.name,
@@ -112,34 +122,45 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
             sortText: "b" + table.name,
           });
 
-          // ── Column names ─────────────────────────────────────────────
-          (table.columns || []).forEach((col: any) => {
-            const pkBadge = col.isPrimary ? " 🔑" : "";
-            const fkBadge = col.fkTarget ? ` → ${col.fkTarget}.${col.fkCol}` : "";
+          // ── Column names (Commented out for testing large schemas) ──
+          /*
+          columnsArray.forEach((col: any) => {
+            const colName = getColName(col);
+            if (!colName) return; // Skip empty column names to prevent Monaco crashes
+
+            const isPrimary = col && typeof col === "object" ? !!col.isPrimary : false;
+            const fkTarget = col && typeof col === "object" ? col.fkTarget : null;
+            const fkCol = col && typeof col === "object" ? col.fkCol : null;
+            const colType = col && typeof col === "object" ? col.type || "" : "";
+
+            const pkBadge = isPrimary ? " 🔑" : "";
+            const fkBadge = fkTarget ? ` → ${fkTarget}.${fkCol || 'id'}` : "";
+
             suggestions.push({
-              label: col.name,
-              kind: col.isPrimary
+              label: colName,
+              kind: isPrimary
                 ? monaco.languages.CompletionItemKind.Variable
-                : col.fkTarget
+                : fkTarget
                 ? monaco.languages.CompletionItemKind.Reference
                 : monaco.languages.CompletionItemKind.Field,
-              insertText: col.name,
-              detail: `${table.name}.${col.name} ${col.type || ""}${pkBadge}${fkBadge}`,
+              insertText: colName,
+              detail: `${table.name}.${colName} ${colType}${pkBadge}${fkBadge}`,
               documentation: `Column of table "${table.name}"`,
               range,
-              sortText: "c" + table.name + "." + col.name,
+              sortText: "c" + table.name + "." + colName,
             });
 
             // Qualified form: table.column
             suggestions.push({
-              label: `${table.name}.${col.name}`,
+              label: `${table.name}.${colName}`,
               kind: monaco.languages.CompletionItemKind.Field,
-              insertText: `${table.name}.${col.name}`,
-              detail: `${col.type || ""}${pkBadge}${fkBadge}`,
+              insertText: `${table.name}.${colName}`,
+              detail: `${colType}${pkBadge}${fkBadge}`,
               range,
-              sortText: "d" + table.name + "." + col.name,
+              sortText: "d" + table.name + "." + colName,
             });
           });
+          */
         });
 
         return { suggestions };
@@ -207,6 +228,11 @@ const QueryEditor: React.FC<QueryEditorProps> = ({
     if (monacoRef.current) {
       registerCompletions(monacoRef.current);
     }
+    return () => {
+      if (providerRef.current) {
+        providerRef.current.dispose();
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConnectionId, selectedDatabase]);
 

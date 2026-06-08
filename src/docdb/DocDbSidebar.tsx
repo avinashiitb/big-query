@@ -491,7 +491,7 @@ const DocDbSidebar: React.FC<DocDbSidebarProps> = ({
         </div>
 
         {dbsExpanded && (
-          <div style={{ marginTop: 2, marginBottom: 4 }}>
+          <div style={{ marginTop: 2, marginBottom: 4, maxHeight: '140px', overflowY: 'auto' }}>
             {loadingDatabases ? (
               <div style={{ padding: "6px 20px", fontSize: 11, color: "var(--fg-3)" }}>Loading databases...</div>
             ) : databases.length === 0 ? (

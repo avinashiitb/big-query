@@ -272,7 +272,7 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
 
             {/* Database rows */}
             {dbsExpanded && (
-              <div style={{ marginTop: 2 }}>
+              <div style={{ marginTop: 2, maxHeight: '140px', overflowY: 'auto' }}>
                 {loadingDatabases ? (
                   <div style={{ padding: '4px 20px', fontSize: 11, color: 'var(--fg-3)' }}>Loading…</div>
                 ) : databases.length === 0 ? (
