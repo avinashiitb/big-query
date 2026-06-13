@@ -147,11 +147,21 @@ const DocDbPage: React.FC<DocDbPageProps> = ({
           if (savedData.results) setResults(savedData.results);
           if (savedData.executionTime) setExecutionTime(savedData.executionTime);
         } else {
-          setQuery("// Query MongoDB using JavaScript syntax\ndb.orders.find({ status: 'fulfilled' }).limit(10);");
+          const isElastic = selectedDatabase?.toLowerCase().includes("elastic") || selectedDatabase?.toLowerCase().includes("opensearch");
+          if (isElastic) {
+            setQuery('{\n  "size": 10,\n  "query": {\n    "match_all": {}\n  }\n}');
+          } else {
+            setQuery("// Query MongoDB using JavaScript syntax\ndb.orders.find({ status: 'fulfilled' }).limit(10);");
+          }
         }
       } catch (e) {
         console.error("Failed to load state", e);
-        setQuery("// Query MongoDB using JavaScript syntax\ndb.orders.find({ status: 'fulfilled' }).limit(10);");
+        const isElastic = selectedDatabase?.toLowerCase().includes("elastic") || selectedDatabase?.toLowerCase().includes("opensearch");
+        if (isElastic) {
+          setQuery('{\n  "size": 10,\n  "query": {\n    "match_all": {}\n  }\n}');
+        } else {
+          setQuery("// Query MongoDB using JavaScript syntax\ndb.orders.find({ status: 'fulfilled' }).limit(10);");
+        }
       } finally {
         setIsLoaded(true);
       }
@@ -207,6 +217,39 @@ const DocDbPage: React.FC<DocDbPageProps> = ({
     loadCollections();
   }, [selectedConnectionId, selectedDatabase]);
 
+  const lastDatabaseRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (selectedDatabase) {
+      const isElastic = selectedDatabase.toLowerCase().includes("elastic") || selectedDatabase.toLowerCase().includes("opensearch");
+      setFileName(isElastic ? "Untitled Elasticsearch Query" : "Untitled MongoDB Query");
+    }
+  }, [selectedDatabase]);
+
+  useEffect(() => {
+    if (!isLoaded || !selectedDatabase) return;
+    const prevDb = lastDatabaseRef.current;
+    lastDatabaseRef.current = selectedDatabase;
+
+    if (prevDb && prevDb !== selectedDatabase) {
+      const prevWasElastic = prevDb.toLowerCase().includes("elastic") || prevDb.toLowerCase().includes("opensearch");
+      const currentIsElastic = selectedDatabase.toLowerCase().includes("elastic") || selectedDatabase.toLowerCase().includes("opensearch");
+      
+      if (prevWasElastic !== currentIsElastic) {
+        const mongoDefault = "// Query MongoDB using JavaScript syntax\ndb.orders.find({ status: 'fulfilled' }).limit(10);";
+        const elasticDefault = '{\n  "size": 10,\n  "query": {\n    "match_all": {}\n  }\n}';
+        
+        if (!query || query.trim() === "" || query === mongoDefault || query === elasticDefault) {
+          if (currentIsElastic) {
+            setQuery(elasticDefault);
+          } else {
+            setQuery(mongoDefault);
+          }
+        }
+      }
+    }
+  }, [selectedDatabase, isLoaded, query]);
+
   const handleSelectCollection = (colName: string) => {
     setSelectedCollection(colName);
     // Auto-populate initial simple query in editor
@@ -241,6 +284,9 @@ const DocDbPage: React.FC<DocDbPageProps> = ({
       setIsExecuting(false);
     }
   };
+
+  const isElastic = selectedDatabase?.toLowerCase().includes("elastic") || selectedDatabase?.toLowerCase().includes("opensearch");
+  const editorLanguage = isElastic ? "json" : "javascript";
 
   return (
     <div className="docdb-container">
@@ -284,7 +330,7 @@ const DocDbPage: React.FC<DocDbPageProps> = ({
                   background: "var(--bg-1)",
                 }}
               >
-                <DocDbEditor value={query} onChange={setQuery} collections={collections} />
+                <DocDbEditor value={query} onChange={setQuery} collections={collections} language={editorLanguage} />
               </div>
 
               {/* Horizontal divider row resize */}

@@ -407,7 +407,7 @@ const DocDbSidebar: React.FC<DocDbSidebarProps> = ({
               {connection?.name || "events_cluster"}
             </div>
             <div style={{ fontSize: 10, color: "var(--fg-3)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-              {connection?.type || "mongo"} · {activeCollections.length} collections {database ? `· ${database}` : ""}
+              {connection?.type || "mongo"} · {activeCollections.length} collections {database ? `· ${database.includes('||') ? database.split('||')[0] : database}` : ""}
             </div>
           </div>
           {onRefresh && (
@@ -523,7 +523,7 @@ const DocDbSidebar: React.FC<DocDbSidebarProps> = ({
                         <path d="M4 12c0 1.38 3.58 2.5 8 2.5s8-1.12 8-2.5"></path>
                       </svg>
                     </span>
-                    <span className="mono" style={{ fontSize: "11px", flex: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{db}</span>
+                    <span className="mono" style={{ fontSize: "11px", flex: 1, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{db.includes('||') ? db.split('||')[0] : db}</span>
                     {isActive && (
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#10b981", flexShrink: 0 }}>
                         <polyline points="20 6 9 17 4 12"></polyline>
@@ -606,7 +606,7 @@ const DocDbSidebar: React.FC<DocDbSidebarProps> = ({
             <rect x="14" y="14" width="7" height="7" rx="1"></rect>
           </svg>
           <span style={{ fontWeight: 600 }}>Collections</span>
-          {database && <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", marginLeft: 2 }}>· {database}</span>}
+          {database && <span className="mono" style={{ fontSize: 10, color: "var(--fg-3)", marginLeft: 2 }}>· {database.includes('||') ? database.split('||')[0] : database}</span>}
           <span className="tree-count" style={{ marginLeft: "auto", fontSize: 10, opacity: 0.6, background: "var(--bg-3)", padding: "1px 5px", borderRadius: 10 }}>{filteredCollections.length}</span>
         </div>
 

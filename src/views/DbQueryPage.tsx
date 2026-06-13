@@ -146,8 +146,6 @@ const DbQueryPage: React.FC<DbQueryPageProps> = ({
         if (savedData && Object.keys(savedData).length > 0) {
           if (savedData.query) setQuery(savedData.query);
           if (savedData.result) setResult(savedData.result);
-          if (savedData.selectedConnectionId) setSelectedConnectionId(savedData.selectedConnectionId);
-          if (savedData.selectedDatabase) setSelectedDatabase(savedData.selectedDatabase);
         } else {
           setQuery(
             "-- Write your SQL query here\nSELECT * FROM table_name LIMIT 10;",

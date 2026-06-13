@@ -5,6 +5,7 @@ interface DocDbEditorProps {
   value: string;
   onChange: (value: string) => void;
   collections?: any[];
+  language?: string;
 }
 
 const MONGO_KEYWORDS = [
@@ -24,6 +25,7 @@ const DocDbEditor: React.FC<DocDbEditorProps> = ({
   value,
   onChange,
   collections = [],
+  language,
 }) => {
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const monacoRef = useRef<any>(null);
@@ -35,12 +37,16 @@ const DocDbEditor: React.FC<DocDbEditorProps> = ({
     collectionsRef.current = collections;
   }, [collections]);
 
-  const registerCompletions = (monaco: any) => {
+  const registerCompletions = (monaco: any, lang: string) => {
     if (providerRef.current) {
       providerRef.current.dispose();
     }
 
-    providerRef.current = monaco.languages.registerCompletionItemProvider("javascript", {
+    if (lang !== "javascript") {
+      return;
+    }
+
+    providerRef.current = monaco.languages.registerCompletionItemProvider(lang, {
       triggerCharacters: [".", "$", "{", "[", ","],
       provideCompletionItems: (model: any, position: any) => {
         const word = model.getWordUntilPosition(position);
@@ -149,8 +155,14 @@ const DocDbEditor: React.FC<DocDbEditorProps> = ({
     });
 
     monaco.editor.setTheme(isDark ? "db-dark" : "db-light");
-    registerCompletions(monaco);
+    registerCompletions(monaco, language || "javascript");
   };
+
+  useEffect(() => {
+    if (monacoRef.current) {
+      registerCompletions(monacoRef.current, language || "javascript");
+    }
+  }, [language]);
 
   useEffect(() => {
     return () => {
@@ -164,7 +176,7 @@ const DocDbEditor: React.FC<DocDbEditorProps> = ({
     <div className="docdb-editor-wrapper" style={{ height: "100%" }}>
       <Editor
         height="100%"
-        defaultLanguage="javascript"
+        language={language || "javascript"}
         theme={isDark ? "db-dark" : "db-light"}
         value={value}
         onMount={handleEditorMount}

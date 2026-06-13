@@ -102,8 +102,14 @@ function App({
             const alreadyValid = selectedDatabase && dbs.includes(selectedDatabase);
             const defaultDb = alreadyValid
               ? selectedDatabase
-              : (pinned && dbs.some(d => d === pinned || d.endsWith(`||${pinned}`))
-                  ? dbs.find(d => d === pinned || d.endsWith(`||${pinned}`))
+              : (pinned && dbs.some(d => {
+                  const parts = d.split('||');
+                  return parts[0] === pinned || parts[1] === pinned;
+                })
+                  ? dbs.find(d => {
+                      const parts = d.split('||');
+                      return parts[0] === pinned || parts[1] === pinned;
+                    })
                   : dbs[0]);
             setSelectedDatabase(defaultDb);
           } else {
@@ -154,7 +160,36 @@ function App({
   }, []);
 
   const selectedConnection = connections.find(c => c.id === selectedConnectionId);
-  const isDocDb = isDocDbRoute || selectedConnection?.type === 'mongodb' || selectedConnection?.type === 'mongo';
+  
+  const getIsSelectedDatabaseDocDb = () => {
+    if (!selectedDatabase) return false;
+    if (selectedDatabase.includes('||')) {
+      const parts = selectedDatabase.split('||');
+      if (parts.length >= 3) {
+        const type = parts[2].toLowerCase();
+        return (
+          type === 'mongodb' ||
+          type === 'mongo' ||
+          type === 'elasticsearch' ||
+          type === 'elastic' ||
+          type === 'opensearch' ||
+          type === 'dynamodb' ||
+          type === 'cassandra' ||
+          type === 'influxdb'
+        );
+      }
+    }
+    const lowerName = selectedDatabase.toLowerCase();
+    return (
+      lowerName.includes('mongo') ||
+      lowerName.includes('elastic') ||
+      lowerName.includes('opensearch') ||
+      lowerName.includes('dynamo') ||
+      lowerName.includes('cassandra')
+    );
+  };
+
+  const isDocDb = isDocDbRoute || selectedConnection?.type === 'mongodb' || selectedConnection?.type === 'mongo' || getIsSelectedDatabaseDocDb();
 
   return (
     <div className="plugin-container">

@@ -23,7 +23,7 @@ async function getDatabases(config) {
         });
         if (!response.ok) return config.database ? [config.database] : [];
         const sources = await response.json();
-        return (Array.isArray(sources) ? sources : []).map(s => `${s.name}||${s.id}`);
+        return (Array.isArray(sources) ? sources : []).map(s => `${s.name}||${s.id}||${s.type || s.syntax || ''}`);
     } catch (e) {
         return config.database ? [config.database] : [];
     }
@@ -34,7 +34,12 @@ async function getTables(config, database) {
     let dataSourceId = activeDb;
     if (dataSourceId && typeof dataSourceId === 'string') {
         if (dataSourceId.includes('||')) {
-            dataSourceId = dataSourceId.split('||').pop();
+            const parts = dataSourceId.split('||');
+            if (parts.length >= 2) {
+                dataSourceId = parts[1];
+            } else {
+                dataSourceId = parts[0];
+            }
         } else {
             const match = dataSourceId.match(/^(\d+):/);
             if (match) {
@@ -103,7 +108,12 @@ async function executeQuery(config, query, database) {
     let dataSourceId = activeDb;
     if (dataSourceId && typeof dataSourceId === 'string') {
         if (dataSourceId.includes('||')) {
-            dataSourceId = dataSourceId.split('||').pop();
+            const parts = dataSourceId.split('||');
+            if (parts.length >= 2) {
+                dataSourceId = parts[1];
+            } else {
+                dataSourceId = parts[0];
+            }
         } else {
             const match = dataSourceId.match(/^(\d+):/);
             if (match) {
