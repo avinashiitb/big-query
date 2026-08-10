@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Table,
   Download,
   Check,
   Filter,
-  MoreHorizontal,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import "./ResultSection.css";
@@ -14,6 +17,8 @@ interface ResultSectionProps {
   result: any;
   isExecuting: boolean;
 }
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250];
 
 const ResultSection: React.FC<ResultSectionProps> = ({
   result,
@@ -24,7 +29,77 @@ const ResultSection: React.FC<ResultSectionProps> = ({
     title: string;
     data: any;
   } | null>(null);
+
+  // Pagination & Filter States
+  const [pageSize, setPageSize] = useState<number>(100);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [filterText, setFilterText] = useState<string>("");
+
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+  let rawData: any[] = [];
+  if (Array.isArray(result)) {
+    rawData = result;
+  } else if (result?.data) {
+    rawData = result.data;
+  }
+
+  let columns = result?.columns || [];
+  if (columns.length === 0 && rawData.length > 0) {
+    columns = Object.keys(rawData[0]);
+  }
+  const executionTime = result?.executionTime || result?.duration || 0;
+  const sizeFormatted = result?.size || "0 B";
+
+  // Filter rows across all column values
+  const filteredData = useMemo(() => {
+    if (!filterText.trim()) return rawData;
+    const q = filterText.toLowerCase();
+    return rawData.filter((row: any) => {
+      return Object.values(row).some((val) => {
+        if (val === null || val === undefined) return false;
+        return String(val).toLowerCase().includes(q);
+      });
+    });
+  }, [rawData, filterText]);
+
+  const totalRows = filteredData.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+  // Reset to page 1 whenever results change, filter changes, or page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [result, filterText, pageSize]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(currentPage * pageSize, totalRows);
+  const displayRows = filteredData.slice(startIndex, endIndex);
+
+  const handleExportCSV = () => {
+    if (!rawData || rawData.length === 0) return;
+    const keys = columns.map((c: any) => (typeof c === "object" ? c.key : c));
+    const headers = columns.map((c: any) => (typeof c === "object" ? c.label : c));
+    const csvRows = [headers.join(",")];
+
+    filteredData.forEach((row: any) => {
+      const values = keys.map((key: string) => {
+        let val = row[key];
+        if (val === null || val === undefined) return '""';
+        if (typeof val === "object") val = JSON.stringify(val);
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      });
+      csvRows.push(values.join(","));
+    });
+
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bigquery_export_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!result && !isExecuting) {
     return (
@@ -35,6 +110,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({
           alignItems: "center",
           justifyContent: "center",
           color: "var(--fg-3)",
+          height: "100%",
         }}
       >
         <p>Run a query to see results here.</p>
@@ -44,28 +120,25 @@ const ResultSection: React.FC<ResultSectionProps> = ({
 
   if (result?.error) {
     return (
-      <div className="table-wrap" style={{ padding: 24, color: "var(--warn)" }}>
+      <div className="table-wrap" style={{ padding: 24, color: "var(--warn)", height: "100%" }}>
         <h4>Error executing query</h4>
         <p>{result.error}</p>
       </div>
     );
   }
 
-  let data = [];
-  if (Array.isArray(result)) {
-    data = result;
-  } else if (result?.data) {
-    data = result.data;
-  }
-
-  let columns = result?.columns || [];
-  if (columns.length === 0 && data.length > 0) {
-    columns = Object.keys(data[0]);
-  }
-  const executionTime = result?.executionTime || result?.duration || 0;
-
   return (
-    <React.Fragment>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* ── Top Bar ────────────────────────────────────────────────── */}
       <div className="results-bar">
         <div className="seg">
           <button
@@ -89,14 +162,14 @@ const ResultSection: React.FC<ResultSectionProps> = ({
         <span className="vdiv" style={{ margin: "0 6px" }} />
 
         {isExecuting ? (
-          <span className="stat" style={{ color: "var(--accent-color)" }}>
+          <span className="stat" style={{ color: "var(--accent)" }}>
             <span className="pulsing-dot" style={{ marginRight: 6 }} /> Running
             query...
           </span>
         ) : (
           <React.Fragment>
             <span className="stat">
-              <b>{data.length}</b> rows
+              <b>{rawData.length}</b> rows
             </span>
             <span className="dim">·</span>
             <span className="stat">
@@ -104,7 +177,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({
             </span>
             <span className="dim">·</span>
             <span className="stat">
-              <b>4.2</b> KB
+              <b>{sizeFormatted}</b>
             </span>
             <span className="dim">·</span>
             <span className="stat">
@@ -128,27 +201,43 @@ const ResultSection: React.FC<ResultSectionProps> = ({
           <Filter size={11} style={{ color: "var(--fg-3)" }} />
           <input
             placeholder="Filter rows…"
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
             style={{
               border: "none",
               background: "transparent",
               outline: "none",
               color: "var(--fg)",
               fontSize: 11,
-              width: 140,
+              width: 130,
               fontFamily: "inherit",
             }}
           />
+          {filterText && (
+            <button
+              onClick={() => setFilterText("")}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "var(--fg-3)",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+              }}
+            >
+              <X size={11} />
+            </button>
+          )}
         </div>
 
-        <button className="btn btn-ghost">
+        <button className="btn btn-ghost" onClick={handleExportCSV} title="Export as CSV">
           <Download size={11} style={{ marginRight: 4 }} /> Export
         </button>
-        <button className="btn btn-icon btn-ghost">
-          <MoreHorizontal size={12} />
-        </button>
       </div>
-      {viewMode === "table" && data && columns.length > 0 && (
-        <div className="table-wrap">
+
+      {/* ── Table View ─────────────────────────────────────────────── */}
+      {viewMode === "table" && rawData && columns.length > 0 && (
+        <div className="table-wrap" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
           <table className="dt">
             <thead>
               <tr>
@@ -167,13 +256,13 @@ const ResultSection: React.FC<ResultSectionProps> = ({
               </tr>
             </thead>
             <tbody>
-              {data.map((row: any, i: number) => (
+              {displayRows.map((row: any, i: number) => (
                 <tr
                   key={i}
                   className="row-in"
-                  style={{ animationDelay: `${i * 8}ms` }}
+                  style={{ animationDelay: `${i * 4}ms` }}
                 >
-                  <td className="row-num">{i + 1}</td>
+                  <td className="row-num">{startIndex + i + 1}</td>
                   {columns.map((c: any, j: number) => {
                     const key = typeof c === "object" ? c.key : c;
                     const label = typeof c === "object" ? c.label : c;
@@ -262,13 +351,14 @@ const ResultSection: React.FC<ResultSectionProps> = ({
         </div>
       )}
 
-      {viewMode === "json" && data && (
-        <div className="json-wrapper" style={{ height: "calc(100% - 42px)" }}>
+      {/* ── JSON View ──────────────────────────────────────────────── */}
+      {viewMode === "json" && rawData && (
+        <div className="json-wrapper" style={{ flex: 1, minHeight: 0 }}>
           <Editor
             height="100%"
             defaultLanguage="json"
             theme={isDark ? "vs-dark" : "light"}
-            value={JSON.stringify(data, null, 2)}
+            value={JSON.stringify(filteredData, null, 2)}
             options={{
               readOnly: true,
               minimap: { enabled: false },
@@ -282,6 +372,122 @@ const ResultSection: React.FC<ResultSectionProps> = ({
         </div>
       )}
 
+      {/* ── Pagination Bar ────────────────────────────────────────── */}
+      {viewMode === "table" && rawData.length > 0 && (
+        <div
+          style={{
+            height: 36,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 12px",
+            background: "var(--bg-1)",
+            borderTop: "1px solid var(--border)",
+            fontSize: 12,
+            color: "var(--fg-2)",
+            userSelect: "none",
+          }}
+        >
+          {/* Row count range */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span>
+              Showing <b>{totalRows > 0 ? startIndex + 1 : 0}</b>–
+              <b>{endIndex}</b> of <b>{totalRows}</b> rows
+            </span>
+            {filteredData.length !== rawData.length && (
+              <span style={{ color: "var(--fg-3)", fontSize: 11 }}>
+                (filtered from {rawData.length})
+              </span>
+            )}
+          </div>
+
+          {/* Controls: Page Size Options & Navigation */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Page Size Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, color: "var(--fg-3)" }}>
+                Rows per page:
+              </span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                style={{
+                  background: "var(--bg-2)",
+                  color: "var(--fg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                  fontSize: 11,
+                  fontFamily: "inherit",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt} {opt === 100 ? "(Default)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Navigation buttons */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                className="btn btn-icon btn-ghost"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                title="First Page"
+                style={{ height: 24, width: 24, padding: 0 }}
+              >
+                <ChevronsLeft size={13} />
+              </button>
+              <button
+                className="btn btn-icon btn-ghost"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                title="Previous Page"
+                style={{ height: 24, width: 24, padding: 0 }}
+              >
+                <ChevronLeft size={13} />
+              </button>
+
+              <span
+                style={{
+                  margin: "0 6px",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  fontFamily: "var(--font-mono, monospace)",
+                }}
+              >
+                Page <b>{currentPage}</b> / <b>{totalPages}</b>
+              </span>
+
+              <button
+                className="btn btn-icon btn-ghost"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                title="Next Page"
+                style={{ height: 24, width: 24, padding: 0 }}
+              >
+                <ChevronRight size={13} />
+              </button>
+              <button
+                className="btn btn-icon btn-ghost"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                title="Last Page"
+                style={{ height: 24, width: 24, padding: 0 }}
+              >
+                <ChevronsRight size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── JSON Modal Detail ────────────────────────────────────── */}
       {expandedJson && (
         <div
           style={{
@@ -361,7 +567,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({
           </div>
         </div>
       )}
-    </React.Fragment>
+    </div>
   );
 };
 
