@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, Activity, CheckCircle2, XCircle, Database } from 'lucide-react';
+import { Save, Activity, CheckCircle2, XCircle, Database, HelpCircle, FileKey } from 'lucide-react';
 import { ipc } from '../ipc';
 
 interface AddConnectionFormProps {
@@ -9,11 +9,11 @@ interface AddConnectionFormProps {
 }
 
 export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, onSuccess, initialValues }) => {
-  const [dbType] = useState('redash');
   const [name, setName] = useState(initialValues?.name || '');
-  const [host, setHost] = useState(initialValues?.host || '');
+  const [projectId, setProjectId] = useState(initialValues?.host || initialValues?.projectId || '');
+  const [credentials, setCredentials] = useState(initialValues?.password || initialValues?.credentials || '');
+  const [location, setLocation] = useState(initialValues?.location || 'US');
   const [database, setDatabase] = useState(initialValues?.database || '');
-  const [password, setPassword] = useState(initialValues?.password || '');
   const [loading, setLoading] = useState(false);
   const [testResult, setTestResult] = useState<{
     show: boolean;
@@ -25,12 +25,15 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
   const getFormData = () => ({
     ...(initialValues?.id ? { id: initialValues.id } : {}),
     name,
-    type: dbType,
-    host,
+    type: 'bigquery',
+    host: projectId, // GCP Project ID saved as host for compatibility
+    projectId,
     port: '',
     database,
     username: '',
-    password
+    password: credentials, // Service Account JSON saved in credentials/password
+    credentials,
+    location
   });
 
   const notify = (msg: string, type: string = 'info') => {
@@ -43,6 +46,7 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
   };
 
   const handleTest = async () => {
+    if (!projectId) return notify('Please enter your Google Cloud Project ID', 'error');
     setLoading(true);
     try {
       const data = getFormData();
@@ -50,30 +54,31 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
       if (result?.success) {
         setTestResult({
           show: true, success: true,
-          message: result.message || `Successfully connected to Redash`,
+          message: result.message || `Successfully connected to BigQuery`,
           details: {
-            'Host / URL': host || '(not set)',
-            ...(database ? { 'Data Source ID': database } : {}),
-            'Type': 'Redash'
+            'Project ID': projectId,
+            'Location': location || 'US',
+            ...(database ? { 'Default Dataset': database } : {}),
+            'Engine': 'Google BigQuery'
           }
         });
       } else {
         setTestResult({
           show: true, success: false,
-          message: result?.message || 'Connection failed. Check your credentials.',
+          message: result?.message || 'Connection failed. Check your project ID and Service Account key credentials.',
           details: {
-            'Host / URL': host || '(not set)',
-            'Type': 'Redash'
+            'Project ID': projectId || '(not set)',
+            'Engine': 'Google BigQuery'
           }
         });
       }
     } catch (e: any) {
       setTestResult({
         show: true, success: false,
-        message: e.message || 'Error testing connection',
+        message: e.message || 'Error testing BigQuery connection',
         details: {
-          'Host / URL': host || '(not set)',
-          'Type': 'Redash'
+          'Project ID': projectId || '(not set)',
+          'Engine': 'Google BigQuery'
         }
       });
     } finally {
@@ -83,14 +88,13 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
 
   const handleSave = async () => {
     if (!name) return notify('Please enter a connection name', 'error');
-    if (!host) return notify('Please enter the Redash Host/URL', 'error');
-    if (!password) return notify('Please enter your API Key', 'error');
+    if (!projectId) return notify('Please enter your Google Cloud Project ID', 'error');
     setLoading(true);
     try {
       const data = getFormData();
       const result = await ipc.invoke('save-connection', data);
       if (result) {
-        notify('Connection saved successfully', 'success');
+        notify('BigQuery connection saved successfully', 'success');
         if (onSuccess) onSuccess(result.id || (typeof result === 'number' ? result : undefined));
         else onCancel();
       }
@@ -117,7 +121,7 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: 340, borderRadius: 12,
+              width: 360, borderRadius: 12,
               background: 'var(--bg-1)',
               border: '1px solid var(--border)',
               boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
@@ -132,7 +136,6 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
               background: testResult.success ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
             }}>
-              {/* Icon */}
               <div style={{
                 width: 52, height: 52, borderRadius: 12,
                 background: testResult.success ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
@@ -149,7 +152,7 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
                   <Database size={11} />
-                  Redash · {host || 'localhost'}
+                  Google BigQuery · {projectId}
                 </div>
               </div>
             </div>
@@ -203,23 +206,25 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
           </div>
         </div>
       )}
-      {/* ──────────────────────────────────────────────────────────────── */}
 
       <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', background: 'var(--bg-1)' }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: 'var(--fg)' }}>
-          {initialValues ? 'Edit Redash Connection' : 'New Redash Connection'}
+          {initialValues ? 'Edit BigQuery Connection' : 'New BigQuery Connection'}
         </h2>
-        <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--fg-3)' }}>Configure a Redash connection to start querying.</p>
+        <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--fg-3)' }}>
+          Connect to your Google Cloud BigQuery project (supports both Sandbox and Paid projects).
+        </p>
       </div>
 
-      <div style={{ padding: '32px', maxWidth: 600 }}>
+      <div style={{ padding: '32px', maxWidth: 640 }}>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 6 }}>Connection Name</label>
             <input 
               type="text" 
-              placeholder="e.g. Production Redash"
+              placeholder="e.g. My BigQuery Sandbox Project"
               value={name}
               onChange={e => setName(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }} 
@@ -228,46 +233,71 @@ export const AddConnectionForm: React.FC<AddConnectionFormProps> = ({ onCancel, 
 
           <div style={{ gridColumn: '1 / -1' }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 6 }}>
-              Host / URL
+              GCP Project ID
+              <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--fg-3)', fontWeight: 400 }}>(e.g. my-gcp-project-12345)</span>
             </label>
             <input
               type="text"
-              placeholder="https://redash.company.com"
-              value={host}
-              onChange={e => setHost(e.target.value)}
+              placeholder="e.g. my-gcp-project-id"
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }}
             />
           </div>
 
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 4 }}>
-              Data Source ID
-              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 400, color: 'var(--fg-3)', fontStyle: 'italic' }}>(optional — leave blank to browse all data sources)</span>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 6 }}>
+              <span>Service Account Key (JSON String or File Path)</span>
+              <span style={{ fontSize: 11, color: 'var(--fg-3)', fontWeight: 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <FileKey size={12} /> Optional if using gcloud SDK default auth
+              </span>
+            </label>
+            <textarea
+              placeholder='Paste raw JSON key content: {"type": "service_account", "project_id": "..."}, or enter key file path (e.g. /path/to/key.json)'
+              value={credentials}
+              rows={4}
+              onChange={e => setCredentials(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 12, fontFamily: 'var(--font-mono, monospace)', outline: 'none', resize: 'vertical' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 6 }}>
+              Location / Region
             </label>
             <input
               type="text"
-              placeholder="e.g. 1 (optional — leave blank to browse all)"
+              placeholder="US"
+              value={location}
+              onChange={e => setLocation(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 4 }}>
+              Default Dataset ID
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 400, color: 'var(--fg-3)' }}>(optional)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. ecommerce_dataset"
               value={database}
               onChange={e => setDatabase(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }}
             />
           </div>
 
-          <div style={{ gridColumn: '1 / -1' }}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--fg-2)', marginBottom: 6 }}>
-              Password (User API Key)
-            </label>
-            <input
-              type="password"
-              placeholder="Your API Key"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--fg)', fontSize: 13, outline: 'none' }}
-            />
+          <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: 11, color: 'var(--fg-3)', lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 600, color: 'var(--fg-2)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <HelpCircle size={13} style={{ color: 'var(--accent)' }} /> BigQuery Sandbox & API Info:
+            </div>
+            BigQuery Sandbox mode allows free querying up to Google&apos;s monthly quota without a credit card. Your Project ID and Service Account API keys automatically connect through Google Cloud&apos;s standard BigQuery API.
           </div>
+
         </div>
 
-        <div style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             className="btn"
             onClick={handleSave}

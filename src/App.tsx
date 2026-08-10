@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import DbQueryPage from './views/DbQueryPage';
-import DocDbPage from './docdb/DocDbPage';
 import { ipc } from './ipc';
 
 interface AppProps {
@@ -136,90 +135,21 @@ function App({
     document.documentElement.setAttribute('data-theme', localTheme);
   }, [localTheme]);
 
-  const getIsDocDbRoute = () => {
-    try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get("route") === "docdb" || url.pathname.includes("/docdb")) {
-        return true;
-      }
-      if (window.location.hash.includes("route=docdb") || window.location.hash.includes("/docdb")) {
-        return true;
-      }
-    } catch (e) { }
-    return false;
-  };
-
-  const [isDocDbRoute, setIsDocDbRoute] = useState(getIsDocDbRoute());
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setIsDocDbRoute(getIsDocDbRoute());
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
-  const selectedConnection = connections.find(c => c.id === selectedConnectionId);
-  
-  const getIsSelectedDatabaseDocDb = () => {
-    if (!selectedDatabase) return false;
-    if (selectedDatabase.includes('||')) {
-      const parts = selectedDatabase.split('||');
-      if (parts.length >= 3) {
-        const type = parts[2].toLowerCase();
-        return (
-          type === 'mongodb' ||
-          type === 'mongo' ||
-          type === 'elasticsearch' ||
-          type === 'elastic' ||
-          type === 'opensearch' ||
-          type === 'dynamodb' ||
-          type === 'cassandra' ||
-          type === 'influxdb'
-        );
-      }
-    }
-    const lowerName = selectedDatabase.toLowerCase();
-    return (
-      lowerName.includes('mongo') ||
-      lowerName.includes('elastic') ||
-      lowerName.includes('opensearch') ||
-      lowerName.includes('dynamo') ||
-      lowerName.includes('cassandra')
-    );
-  };
-
-  const isDocDb = isDocDbRoute || selectedConnection?.type === 'mongodb' || selectedConnection?.type === 'mongo' || getIsSelectedDatabaseDocDb();
-
   return (
     <div className="plugin-container">
-      {isDocDb ? (
-        <DocDbPage
-          fileId={fileId}
-          connections={connections}
-          selectedConnectionId={selectedConnectionId}
-          setSelectedConnectionId={setSelectedConnectionId}
-          selectedDatabase={selectedDatabase}
-          setSelectedDatabase={setSelectedDatabase}
-          onRefreshConnections={loadConnections}
-          theme={localTheme}
-          onToggleTheme={() => setLocalTheme(prev => prev === 'light' ? 'dark' : 'light')}
-        />
-      ) : (
-        <DbQueryPage
-          fileId={fileId}
-          connections={connections}
-          selectedConnectionId={selectedConnectionId}
-          setSelectedConnectionId={setSelectedConnectionId}
-          selectedDatabase={selectedDatabase}
-          setSelectedDatabase={setSelectedDatabase}
-          onRefreshConnections={loadConnections}
-          theme={localTheme}
-          onToggleTheme={() => setLocalTheme(prev => prev === 'light' ? 'dark' : 'light')}
-          layout={localLayout}
-          onToggleLayout={() => setLocalLayout(prev => prev === 'top-bottom' ? 'side-by-side' : 'top-bottom')}
-        />
-      )}
+      <DbQueryPage
+        fileId={fileId}
+        connections={connections}
+        selectedConnectionId={selectedConnectionId}
+        setSelectedConnectionId={setSelectedConnectionId}
+        selectedDatabase={selectedDatabase}
+        setSelectedDatabase={setSelectedDatabase}
+        onRefreshConnections={loadConnections}
+        theme={localTheme}
+        onToggleTheme={() => setLocalTheme(prev => prev === 'light' ? 'dark' : 'light')}
+        layout={localLayout}
+        onToggleLayout={() => setLocalLayout(prev => prev === 'top-bottom' ? 'side-by-side' : 'top-bottom')}
+      />
     </div>
   );
 }

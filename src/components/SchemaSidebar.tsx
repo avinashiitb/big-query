@@ -202,8 +202,8 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
                 width: 28,
                 height: 28,
                 borderRadius: 6,
-                background: "rgba(228, 142, 0, 0.14)",
-                color: "rgb(228, 142, 0)",
+                background: "rgba(66, 133, 244, 0.14)",
+                color: "rgb(66, 133, 244)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -213,7 +213,7 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
                 letterSpacing: "-0.02em",
               }}
             >
-              My
+              BQ
             </span>
             <div style={{ minWidth: 0, flex: "1 1 0%" }}>
               <div
@@ -237,7 +237,7 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                {selectedConnection.type || selectedConnection.kind || "mysql"}{selectedDatabase ? ` · ${selectedDatabase.includes('||') ? selectedDatabase.split('||')[0] : selectedDatabase}` : ""} · {tables.length} tables/views
+                {selectedConnection.type || "bigquery"}{selectedDatabase ? ` · ${selectedDatabase.includes('||') ? selectedDatabase.split('||')[0] : selectedDatabase}` : ""} · {tables.length} tables/views
               </div>
             </div>
             <button
@@ -250,7 +250,7 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
             </button>
           </div>
           
-          {/* ── Databases tree — replaces dropdown ── */}
+          {/* ── Datasets tree ── */}
           <div style={{ marginTop: 10 }}>
             {/* Section header */}
             <div
@@ -264,7 +264,7 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
                   : <ChevronRight size={11} />}
               </span>
               <Database size={11} style={{ color: 'var(--fg-2)', strokeWidth: 1.6, flexShrink: 0 }} />
-              <span style={{ fontWeight: 600, fontSize: 12, flex: 1 }}>Databases</span>
+              <span style={{ fontWeight: 600, fontSize: 12, flex: 1 }}>Datasets</span>
               <span style={{ fontSize: 10, opacity: 0.55, background: 'var(--bg-3)', padding: '1px 5px', borderRadius: 10, fontFamily: 'var(--font-mono, monospace)' }}>
                 {loadingDatabases ? '…' : databases.length}
               </span>

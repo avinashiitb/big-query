@@ -1,16 +1,82 @@
-// Redash Backend Module for DevScribe Dynamic Execution
+// Google BigQuery Backend Module for DevScribe Dynamic Execution
+const { BigQuery } = require('@google-cloud/bigquery');
+const fs = require('fs');
+
+function getBigQueryClient(config) {
+    const options = {};
+
+    // GCP Project ID
+    if (config.host || config.projectId) {
+        const pId = (config.host || config.projectId || '').trim();
+        if (pId && !pId.startsWith('{') && !pId.startsWith('http')) {
+            options.projectId = pId;
+        }
+    }
+
+    // Dataset Location (e.g. US, EU, asia-east1)
+    if (config.location) {
+        options.location = config.location.trim();
+    }
+
+    // Credentials / Service Account Key JSON or File Path
+    const credInput = config.password || config.credentials || config.keyFilename;
+
+    if (credInput) {
+        const trimmed = typeof credInput === 'string' ? credInput.trim() : credInput;
+        if (typeof trimmed === 'object') {
+            options.credentials = trimmed;
+            if (!options.projectId && trimmed.project_id) {
+                options.projectId = trimmed.project_id;
+            }
+        } else if (typeof trimmed === 'string') {
+            if (trimmed.startsWith('{')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    options.credentials = parsed;
+                    if (!options.projectId && parsed.project_id) {
+                        options.projectId = parsed.project_id;
+                    }
+                } catch (e) {
+                    throw new Error("Invalid Service Account JSON key: " + e.message);
+                }
+            } else if (trimmed.endsWith('.json') || trimmed.includes('/') || trimmed.includes('\\')) {
+                if (fs.existsSync(trimmed)) {
+                    options.keyFilename = trimmed;
+                } else {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        options.credentials = parsed;
+                        if (!options.projectId && parsed.project_id) {
+                            options.projectId = parsed.project_id;
+                        }
+                    } catch (e) {
+                        throw new Error(`Service account file not found at path: ${trimmed}`);
+                    }
+                }
+            }
+        }
+    }
+
+    return new BigQuery(options);
+}
+
+function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 async function testConnection(config) {
     try {
-        const response = await fetch(`${config.host}/api/session`, {
-            method: 'GET',
-            headers: { 'Authorization': `Key ${config.password}` }
-        });
-        if (response.ok) {
-            return { success: true, message: "Connected successfully" };
-        } else {
-            return { success: false, message: `HTTP Error: ${response.status}` };
-        }
+        const bigquery = getBigQueryClient(config);
+        const [datasets] = await bigquery.getDatasets({ maxResults: 1 });
+        const projectId = bigquery.projectId || config.projectId || config.host || 'BigQuery Project';
+        return {
+            success: true,
+            message: `Successfully connected to BigQuery project "${projectId}" (${datasets.length} dataset(s) found)`
+        };
     } catch (e) {
         return { success: false, message: e.message };
     }
@@ -18,198 +84,139 @@ async function testConnection(config) {
 
 async function getDatabases(config) {
     try {
-        const response = await fetch(`${config.host}/api/data_sources`, {
-            headers: { 'Authorization': `Key ${config.password}` }
-        });
-        if (!response.ok) return config.database ? [config.database] : [];
-        const sources = await response.json();
-        return (Array.isArray(sources) ? sources : []).map(s => `${s.name}||${s.id}||${s.type || s.syntax || ''}`);
+        const bigquery = getBigQueryClient(config);
+        const [datasets] = await bigquery.getDatasets();
+        const dsList = datasets.map(d => d.id);
+        if (config.database && !dsList.includes(config.database)) {
+            dsList.unshift(config.database);
+        }
+        return dsList;
     } catch (e) {
+        console.error("Failed to list BigQuery datasets:", e.message);
         return config.database ? [config.database] : [];
     }
 }
 
 async function getTables(config, database) {
-    const activeDb = database || config.database;
-    let dataSourceId = activeDb;
-    if (dataSourceId && typeof dataSourceId === 'string') {
-        if (dataSourceId.includes('||')) {
-            const parts = dataSourceId.split('||');
-            if (parts.length >= 2) {
-                dataSourceId = parts[1];
-            } else {
-                dataSourceId = parts[0];
-            }
-        } else {
-            const match = dataSourceId.match(/^(\d+):/);
-            if (match) {
-                dataSourceId = match[1];
-            }
-        }
-    }
-    
-    if (dataSourceId && isNaN(Number(dataSourceId))) {
-        try {
-            const dsRes = await fetch(`${config.host}/api/data_sources`, {
-                headers: { 'Authorization': `Key ${config.password}` }
-            });
-            if (dsRes.ok) {
-                const sources = await dsRes.json();
-                const found = (Array.isArray(sources) ? sources : []).find(
-                    s => s.name === dataSourceId || String(s.id) === dataSourceId
-                );
-                if (found) {
-                    dataSourceId = String(found.id);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to resolve Redash data source name in db-get-tables:", e.message);
-        }
-    }
+    const datasetId = database || config.database;
+    if (!datasetId) return [];
 
-    if (!dataSourceId) {
-        return [];
-    }
-    const response = await fetch(`${config.host}/api/data_sources/${dataSourceId}/schema`, {
-        method: 'GET',
-        headers: { 'Authorization': `Key ${config.password}` }
-    });
-    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-    const data = await response.json();
-    
-    let schema = [];
-    if (data) {
-        if (Array.isArray(data)) {
-            schema = data;
-        } else if (data.schema) {
-            if (Array.isArray(data.schema)) {
-                schema = data.schema;
-            } else if (Array.isArray(data.schema.tables)) {
-                schema = data.schema.tables;
-            }
+    try {
+        const bigquery = getBigQueryClient(config);
+        
+        let bqDataset;
+        if (datasetId.includes('.')) {
+            const parts = datasetId.split('.');
+            bqDataset = bigquery.dataset(parts[1], { projectId: parts[0] });
+        } else {
+            bqDataset = bigquery.dataset(datasetId);
         }
+
+        const [tables] = await bqDataset.getTables();
+
+        const tableSchemas = await Promise.all(tables.map(async (table) => {
+            try {
+                const [metadata] = await table.getMetadata();
+                const rawType = (metadata.type || '').toUpperCase();
+                const type = rawType === 'VIEW' || rawType === 'MATERIALIZED_VIEW' ? 'view' : 'table';
+                const fields = metadata.schema?.fields || [];
+
+                const columns = fields.map(f => ({
+                    name: f.name,
+                    type: f.type + (f.mode === 'REPEATED' ? '[]' : ''),
+                    mode: f.mode || 'NULLABLE',
+                    description: f.description || '',
+                    isPrimary: false
+                }));
+
+                return {
+                    name: table.id,
+                    type: type,
+                    columns: columns,
+                    numRows: metadata.numRows ? Number(metadata.numRows) : 0,
+                    numBytes: metadata.numBytes ? Number(metadata.numBytes) : 0,
+                    creationTime: metadata.creationTime ? new Date(Number(metadata.creationTime)).toISOString() : null,
+                    lastModifiedTime: metadata.lastModifiedTime ? new Date(Number(metadata.lastModifiedTime)).toISOString() : null
+                };
+            } catch (err) {
+                return {
+                    name: table.id,
+                    type: 'table',
+                    columns: []
+                };
+            }
+        }));
+
+        return tableSchemas;
+    } catch (e) {
+        console.error("Failed to get BigQuery tables:", e.message);
+        throw new Error(`Failed to list tables for dataset '${datasetId}': ${e.message}`);
     }
-    
-    return schema.map(t => ({
-        name: t.name,
-        type: 'table',
-        columns: (t.columns || []).map(c => ({
-            name: typeof c === 'string' ? c : c.name,
-            type: typeof c === 'string' ? 'string' : (c.type || 'string'),
-            isPrimary: false
-        }))
-    }));
 }
 
 async function executeQuery(config, query, database) {
-    const activeDb = database || config.database;
     const startTime = performance.now();
-    
-    let dataSourceId = activeDb;
-    if (dataSourceId && typeof dataSourceId === 'string') {
-        if (dataSourceId.includes('||')) {
-            const parts = dataSourceId.split('||');
-            if (parts.length >= 2) {
-                dataSourceId = parts[1];
-            } else {
-                dataSourceId = parts[0];
-            }
-        } else {
-            const match = dataSourceId.match(/^(\d+):/);
-            if (match) {
-                dataSourceId = match[1];
-            }
-        }
-    }
-    
-    if (dataSourceId && isNaN(Number(dataSourceId))) {
-        try {
-            const dsRes = await fetch(`${config.host}/api/data_sources`, {
-                headers: { 'Authorization': `Key ${config.password}` }
-            });
-            if (dsRes.ok) {
-                const sources = await dsRes.json();
-                const found = (Array.isArray(sources) ? sources : []).find(
-                    s => s.name === dataSourceId || String(s.id) === dataSourceId
-                );
-                if (found) {
-                    dataSourceId = String(found.id);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to resolve Redash data source name in db-execute-query:", e.message);
-        }
-    }
+    const datasetId = database || config.database;
+    const bigquery = getBigQueryClient(config);
 
-    if (!dataSourceId) {
-        throw new Error("No Redash data source specified");
-    }
-    
-    const response = await fetch(`${config.host}/api/query_results`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Key ${config.password}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            data_source_id: Number(dataSourceId),
+    try {
+        const queryOptions = {
             query: query,
-            max_age: 0
-        })
-    });
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to start query execution: ${response.status} ${errText}`);
-    }
-    const data = await response.json();
-    const job = data.job;
-    if (!job) throw new Error("No job returned from Redash");
-    let jobId = job.id;
-    let jobStatus = job.status;
-    let queryResultId = null;
+            useLegacySql: false,
+            ...(datasetId ? { defaultDataset: { datasetId } } : {}),
+            ...(config.location ? { location: config.location } : {})
+        };
 
-    while (jobStatus < 3) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const jobResponse = await fetch(`${config.host}/api/jobs/${jobId}`, {
-            headers: { 'Authorization': `Key ${config.password}` }
+        const [job] = await bigquery.createQueryJob(queryOptions);
+        const [rows] = await job.getQueryResults();
+        const [metadata] = await job.getMetadata();
+
+        const stats = metadata.statistics?.query || {};
+        const bytesProcessed = stats.totalBytesProcessed ? Number(stats.totalBytesProcessed) : 0;
+        const formattedBytes = formatBytes(bytesProcessed);
+
+        let columns = [];
+        const schemaFields = metadata.schema?.fields || (rows.length > 0 ? Object.keys(rows[0]).map(k => ({ name: k, type: typeof rows[0][k] })) : []);
+        
+        columns = schemaFields.map(f => ({
+            key: f.name,
+            label: f.name,
+            type: f.type || 'STRING'
+        }));
+
+        const cleanRows = rows.map(row => {
+            const item = {};
+            for (const key of Object.keys(row)) {
+                let val = row[key];
+                if (val !== null && typeof val === 'object') {
+                    if (val.value !== undefined) {
+                        val = val.value;
+                    } else if (Array.isArray(val)) {
+                        val = val.map(v => (v && typeof v === 'object' && v.value !== undefined) ? v.value : v);
+                    }
+                }
+                item[key] = val;
+            }
+            return item;
         });
-        if (!jobResponse.ok) throw new Error(`Failed to check job status: ${jobResponse.status}`);
-        const jobData = await jobResponse.json();
-        jobStatus = jobData.job.status;
-        if (jobStatus === 3) {
-            queryResultId = jobData.job.query_result_id;
-        } else if (jobStatus === 4) {
-            throw new Error(jobData.job.error || "Query execution failed in Redash");
-        }
+
+        const executionTime = Math.round(performance.now() - startTime);
+
+        return {
+            success: true,
+            executionTime,
+            size: formattedBytes,
+            bytesProcessed: bytesProcessed,
+            columns,
+            data: cleanRows,
+            jobId: job.id,
+            totalRows: stats.totalRows ? Number(stats.totalRows) : cleanRows.length,
+            statementType: stats.statementType || 'SELECT'
+        };
+    } catch (e) {
+        console.error("BigQuery query execution error:", e);
+        throw new Error(e.message || "BigQuery query execution failed");
     }
-
-    const resultResponse = await fetch(`${config.host}/api/query_results/${queryResultId}`, {
-        headers: { 'Authorization': `Key ${config.password}` }
-    });
-    if (!resultResponse.ok) throw new Error(`Failed to fetch query results: ${resultResponse.status}`);
-    const resultData = await resultResponse.json();
-    
-    const queryResult = resultData.query_result;
-    let rows = [];
-    let fields = [];
-    if (queryResult && queryResult.data) {
-        rows = queryResult.data.rows || [];
-        fields = (queryResult.data.columns || []).map(c => c.name);
-    }
-    
-    const executionTime = Math.round(performance.now() - startTime);
-    const dataStr = JSON.stringify(rows);
-    const sizeKB = (Buffer.byteLength(dataStr, 'utf8') / 1024).toFixed(1) + " KB";
-
-    const columns = fields.map(f => ({ key: f, label: f, type: 'string' }));
-
-    return {
-        success: true,
-        executionTime,
-        size: sizeKB,
-        columns,
-        data: rows
-    };
 }
 
 module.exports = {

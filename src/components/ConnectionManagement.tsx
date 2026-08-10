@@ -123,7 +123,7 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
   }, [selectedConnectionId]);
 
   const filteredConnections = safeConnections.filter(conn => 
-    conn.type === 'redash' || conn.name.toLowerCase().includes('redash')
+    !conn.type || conn.type === 'bigquery' || conn.type === 'redash' || conn.name.toLowerCase().includes('bigquery') || conn.name.toLowerCase().includes('redash')
   );
 
   return (
@@ -131,7 +131,7 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
       <aside className="sidebar" style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)', background: 'var(--bg-1)' }}>
         <div className="sec-head">
           <Database size={16} className="i" style={{ width: 11, height: 11, strokeWidth: 1.6 }} />
-          <span>Redash Connections</span>
+          <span>BigQuery Connections</span>
           <span className="tree-count">{safeConnections.length}</span>
           <span className="grow"></span>
           <button 
@@ -157,9 +157,9 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
         <div style={{ flex: 1, overflow: 'auto' }}>
           {filteredConnections.map(conn => {
             const isSelected = selectedConnectionId === conn.id;
-            let bg = 'rgba(220, 38, 38, 0.14)';
-            let color = 'rgb(220, 38, 38)';
-            let initial = 'Re';
+            let bg = 'rgba(66, 133, 244, 0.14)';
+            let color = 'rgb(66, 133, 244)';
+            let initial = 'BQ';
 
             return (
               <div 
@@ -223,11 +223,11 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                     {conn.name}
                   </div>
                   <div className="muted mono" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {conn.host}
+                    {conn.host || conn.projectId || 'BigQuery'}
                   </div>
                 </div>
 
-                {/* Delete button — visible on hover via CSS class */}
+                {/* Delete button */}
                 <button
                   className="conn-delete-btn"
                   title="Delete connection"
@@ -307,11 +307,11 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-1)', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <span style={{ 
                   width: 48, height: 48, borderRadius: 6, 
-                  background: 'rgba(220, 38, 38, 0.14)', color: 'rgb(220, 38, 38)', 
+                  background: 'rgba(66, 133, 244, 0.14)', color: 'rgb(66, 133, 244)', 
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', 
                   fontFamily: '"JetBrains Mono", monospace', fontSize: 16, fontWeight: 700, letterSpacing: '-0.02em' 
                 }}>
-                  Re
+                  BQ
                 </span>
                 
                 <div>
@@ -325,15 +325,15 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                       )}
                       {connectionStatus === 'connecting' ? 'connecting...' : connectionStatus}
                     </span>
-                    <span className="chip" style={{ textTransform: 'capitalize' }}>Redash</span>
+                    <span className="chip" style={{ textTransform: 'capitalize' }}>BigQuery</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                     <div className="muted mono" style={{ fontSize: 11 }}>
-                      {selConn.host}
+                      {selConn.host || selConn.projectId || 'GCP BigQuery'}
                     </div>
                     {databases.length > 0 && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-                        <span style={{ color: 'var(--fg-3)' }}>· db:</span>
+                        <span style={{ color: 'var(--fg-3)' }}>· dataset:</span>
                         <select
                           value={selectedDatabase || ''}
                           onChange={(e) => onSelectDatabase && onSelectDatabase(e.target.value || null)}
@@ -349,7 +349,7 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                             fontFamily: 'var(--font-mono, monospace)'
                           }}
                         >
-                          <option value="">Select database...</option>
+                          <option value="">Select dataset...</option>
                           {databases.map(db => (
                             <option key={db} value={db}>
                               {db.includes('||') ? db.split('||')[0] : db}
@@ -426,7 +426,7 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                                   <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                     <th style={{ padding: '8px 12px', color: 'var(--fg-3)', fontWeight: 500 }}>Name</th>
                                     <th style={{ padding: '8px 12px', color: 'var(--fg-3)', fontWeight: 500 }}>Type</th>
-                                    <th style={{ padding: '8px 12px', color: 'var(--fg-3)', fontWeight: 500 }}>Attributes</th>
+                                    <th style={{ padding: '8px 12px', color: 'var(--fg-3)', fontWeight: 500 }}>Mode</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -435,14 +435,12 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                                       <td style={{ padding: '8px 12px', color: 'var(--fg)', fontWeight: 500 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                           {(c.isPrimary || c.pk) && <Key size={12} style={{ color: 'var(--warn)' }} />}
-                                          {(c.fk || c.fkTarget) && <Key size={12} style={{ color: 'var(--fg-3)' }} />}
                                           {c.name}
                                         </div>
                                       </td>
                                       <td className="mono" style={{ padding: '8px 12px', color: 'var(--accent)' }}>{c.type}</td>
                                       <td className="mono" style={{ padding: '8px 12px', color: 'var(--fg-3)' }}>
-                                        {c.nullable === 'NO' ? 'NOT NULL ' : ''}
-                                        {c.fkTarget ? `REFERENCES ${c.fkTarget}(${c.fkCol || 'id'})` : ''}
+                                        {c.mode || 'NULLABLE'}
                                       </td>
                                     </tr>
                                   ))}
@@ -451,10 +449,10 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                             </div>
                             
                             <div style={{ background: '#1e1e1e', padding: 16, borderTop: '1px solid var(--border)' }}>
-                              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>DSL Query</div>
+                              <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', marginBottom: 8 }}>BigQuery SQL DDL</div>
                               <pre className="mono" style={{ margin: 0, color: '#d4d4d4', fontSize: 12, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-{`CREATE TABLE \`${t.name}\` (
-${t.columns.map((c: any) => `  \`${c.name}\` ${c.type}${c.nullable === 'NO' ? ' NOT NULL' : ''}${(c.isPrimary || c.pk) ? ' PRIMARY KEY' : ''}`).join(',\n')}${t.columns.some((c: any) => c.fkTarget) ? ',\n' + t.columns.filter((c: any) => c.fkTarget).map((c: any) => `  FOREIGN KEY (\`${c.name}\`) REFERENCES \`${c.fkTarget}\`(\`${c.fkCol || 'id'}\`)`).join(',\n') : ''}
+{`CREATE TABLE \`${selectedDatabase ? selectedDatabase + '.' : ''}${t.name}\` (
+${t.columns.map((c: any) => `  \`${c.name}\` ${c.type}${c.mode === 'REQUIRED' ? ' NOT NULL' : ''}`).join(',\n')}
 );`}
                               </pre>
                             </div>
