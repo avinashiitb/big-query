@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import { ipc } from "../ipc";
+import { BigQueryIcon } from "./BigQueryIcon";
 
 // Reusable inline copy button shown on row hover
 const CopyBtn: React.FC<{ text: string }> = ({ text }) => {
@@ -197,24 +198,20 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
           }}
         >
           <div className="row gap-2">
-            <span
+            <div
               style={{
                 width: 28,
                 height: 28,
                 borderRadius: 6,
-                background: "rgba(66, 133, 244, 0.14)",
-                color: "rgb(66, 133, 244)",
+                background: "rgba(66, 133, 244, 0.1)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontFamily: '"JetBrains Mono", monospace',
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "-0.02em",
+                flexShrink: 0,
               }}
             >
-              BQ
-            </span>
+              <BigQueryIcon size={16} />
+            </div>
             <div style={{ minWidth: 0, flex: "1 1 0%" }}>
               <div
                 style={{

@@ -11,6 +11,7 @@ import {
   Check,
   Folder,
 } from "lucide-react";
+import { BigQueryIcon } from "./BigQueryIcon";
 import "./DBTopbar.css";
 
 interface DBTopbarProps {
@@ -155,20 +156,7 @@ const DBTopbar: React.FC<DBTopbarProps> = ({
             }}
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
-            <span className="dot"></span>
-            <span
-              className="badge"
-              style={{
-                fontSize: 10,
-                color: "var(--warn)",
-                background: "rgba(245, 158, 11, 0.1)",
-                padding: "1px 6px",
-                borderRadius: 3,
-                fontWeight: 600,
-              }}
-            >
-              My
-            </span>
+            <BigQueryIcon size={14} />
             <b style={{ color: "var(--fg)", fontWeight: 600 }}>
               {selectedConnection.name}
             </b>
@@ -238,18 +226,13 @@ const DBTopbar: React.FC<DBTopbarProps> = ({
                         e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <span
-                      className="dot"
-                      style={{
-                        opacity: c.id === selectedConnection.id ? 1 : 0.2,
-                      }}
-                    ></span>
+                    <BigQueryIcon size={14} />
                     <div
                       style={{
-                        flex: 1,
-                        minWidth: 0,
                         display: "flex",
                         flexDirection: "column",
+                        flex: 1,
+                        gap: 2,
                       }}
                     >
                       <span

@@ -3,6 +3,7 @@ import { Database, Plus, Search, Settings, RefreshCw, Network, TableProperties, 
 import './ConnectionManagement.css';
 import { ErDiagram } from './ErDiagram';
 import { AddConnectionForm } from './AddConnectionForm';
+import { BigQueryIcon } from './BigQueryIcon';
 import { ipc } from '../ipc';
 
 interface ConnectionManagementProps {
@@ -157,9 +158,6 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
         <div style={{ flex: 1, overflow: 'auto' }}>
           {filteredConnections.map(conn => {
             const isSelected = selectedConnectionId === conn.id;
-            let bg = 'rgba(66, 133, 244, 0.14)';
-            let color = 'rgb(66, 133, 244)';
-            let initial = 'BQ';
 
             return (
               <div 
@@ -207,16 +205,14 @@ const ConnectionManagement: React.FC<ConnectionManagementProps> = ({
                   </div>
                 )}
 
-                <span 
-                  style={{ 
-                    width: 28, height: 28, borderRadius: 6, 
-                    background: bg, color: color, 
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', 
-                    fontFamily: '"JetBrains Mono", monospace', fontSize: 10, fontWeight: 700, letterSpacing: '-0.02em' 
-                  }}
-                >
-                  {initial}
-                </span>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  background: 'rgba(66,133,244,0.1)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <BigQueryIcon size={16} />
+                </div>
                 
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: isSelected ? 'var(--accent-fg)' : 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
