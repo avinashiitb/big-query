@@ -48,7 +48,7 @@ const DbQueryPage: React.FC<DbQueryPageProps> = ({
 
   const mainRef = useRef<HTMLElement>(null);
   const isDragging = useRef(false);
-  const [editorHeight, setEditorHeight] = useState(44);
+  const [editorHeight, setEditorHeight] = useState(28);
 
   // Right panel horizontal resize
   const [rightPanelWidth, setRightPanelWidth] = useState(280);

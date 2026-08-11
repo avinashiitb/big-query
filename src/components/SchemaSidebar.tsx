@@ -192,54 +192,29 @@ const SchemaSidebar: React.FC<SchemaSidebarProps> = ({
       {selectedConnection ? (
         <div
           style={{
-            padding: "10px 12px",
+            padding: "8px 12px",
             borderBottom: "1px solid var(--border)",
             background: "var(--bg-1)",
           }}
         >
-          <div className="row gap-2">
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: "rgba(66, 133, 244, 0.1)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <BigQueryIcon size={16} />
-            </div>
-            <div style={{ minWidth: 0, flex: "1 1 0%" }}>
-              <div
+          <div className="row gap-2" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+              <BigQueryIcon size={14} />
+              <span
                 style={{
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: 600,
-                  color: "var(--fg)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  color: "var(--fg-2)",
+                  letterSpacing: "0.4px",
+                  textTransform: "uppercase",
                 }}
               >
-                {selectedConnection.name}
-              </div>
-              <div
-                className="muted mono"
-                style={{
-                  fontSize: 10,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {selectedConnection.type || "bigquery"}{selectedDatabase ? ` · ${selectedDatabase.includes('||') ? selectedDatabase.split('||')[0] : selectedDatabase}` : ""} · {tables.length} tables/views
-              </div>
+                Schema Explorer
+              </span>
             </div>
             <button
               className={`btn btn-icon btn-ghost ${loading ? 'spin' : ''}`}
-              title="Refresh"
+              title="Refresh Schema"
               style={{ height: 22, width: 22 }}
               onClick={() => loadSchema()}
             >

@@ -175,14 +175,32 @@ async function executeQuery(config, query, database) {
         const bytesProcessed = stats.totalBytesProcessed ? Number(stats.totalBytesProcessed) : 0;
         const formattedBytes = formatBytes(bytesProcessed);
 
+        const inferType = (val) => {
+            if (val === null || val === undefined) return 'STRING';
+            if (typeof val === 'number') return Number.isInteger(val) ? 'INTEGER' : 'FLOAT';
+            if (typeof val === 'boolean') return 'BOOLEAN';
+            if (val instanceof Date || (typeof val === 'object' && val.value && typeof val.value === 'string')) return 'TIMESTAMP';
+            if (typeof val === 'object') return Array.isArray(val) ? 'RECORD[]' : 'JSON';
+            if (typeof val === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return 'DATE';
+                if (/^\d{4}-\d{2}-\d{2}[T ]/.test(val)) return 'TIMESTAMP';
+                return 'STRING';
+            }
+            return 'STRING';
+        };
+
         let columns = [];
-        const schemaFields = metadata.schema?.fields || (rows.length > 0 ? Object.keys(rows[0]).map(k => ({ name: k, type: typeof rows[0][k] })) : []);
+        const schemaFields = metadata.schema?.fields || (rows.length > 0 ? Object.keys(rows[0]).map(k => ({ name: k, type: inferType(rows[0][k]) })) : []);
         
-        columns = schemaFields.map(f => ({
-            key: f.name,
-            label: f.name,
-            type: f.type || 'STRING'
-        }));
+        columns = schemaFields.map(f => {
+            let rawT = (f.type || 'STRING').toUpperCase();
+            if (rawT === 'OBJECT') rawT = 'JSON';
+            return {
+                key: f.name,
+                label: f.name,
+                type: rawT
+            };
+        });
 
         const cleanRows = rows.map(row => {
             const item = {};

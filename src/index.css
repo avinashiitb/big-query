@@ -478,6 +478,40 @@ button {
   font-family: var(--font-mono);
 }
 
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--fg-2);
+  font-family: var(--font-mono, monospace);
+  line-height: 1.2;
+}
+.meta-pill b {
+  color: var(--fg);
+  font-weight: 600;
+}
+.meta-pill.meta-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.25);
+  font-weight: 500;
+}
+.meta-pill.meta-time {
+  background: rgba(66, 133, 244, 0.1);
+  color: var(--accent, #4285f4);
+  border-color: rgba(66, 133, 244, 0.25);
+}
+.meta-pill.meta-time.slow {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
 .table-wrap {
   flex: 1 1 auto;
   overflow: auto;
@@ -507,7 +541,16 @@ table.dt thead th {
 table.dt thead th .col-type {
   color: var(--fg-3);
   margin-left: 6px;
-  font-weight: 400;
+  font-weight: 500;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  opacity: 0.5;
+  font-family: var(--font-mono, monospace);
+  background: var(--bg-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
 }
 table.dt tbody td {
   padding: 6px 12px;
@@ -521,9 +564,15 @@ table.dt tbody td {
 table.dt tbody tr:hover td {
   background: var(--bg-1);
 }
-table.dt tbody td.null {
+.null-val {
   color: var(--fg-3);
   font-style: italic;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.55;
+  letter-spacing: 0.5px;
+  user-select: none;
+  font-family: var(--font-mono, monospace);
 }
 table.dt tbody td.num {
   color: var(--warn);

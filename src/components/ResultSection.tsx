@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Zap,
 } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import "./ResultSection.css";
@@ -50,6 +51,11 @@ const ResultSection: React.FC<ResultSectionProps> = ({
   }
   const executionTime = result?.executionTime || result?.duration || 0;
   const sizeFormatted = result?.size || "0 B";
+
+  const formattedTime = executionTime >= 1000 
+    ? `${(executionTime / 1000).toFixed(2)}s` 
+    : `${executionTime}ms`;
+  const isSlowQuery = executionTime >= 3000;
 
   // Filter rows across all column values
   const filteredData = useMemo(() => {
@@ -167,23 +173,26 @@ const ResultSection: React.FC<ResultSectionProps> = ({
             query...
           </span>
         ) : (
-          <React.Fragment>
-            <span className="stat">
-              <b>{rawData.length}</b> rows
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="meta-pill meta-success" title="Query Status">
+              <Check size={11} /> Success
             </span>
-            <span className="dim">·</span>
-            <span className="stat">
-              <b>{executionTime}</b> ms
+            <span className="meta-pill" title="Total rows">
+              <b>{rawData.length.toLocaleString()}</b> rows
             </span>
-            <span className="dim">·</span>
-            <span className="stat">
-              <b>{sizeFormatted}</b>
+            <span
+              className={`meta-pill meta-time ${isSlowQuery ? "slow" : ""}`}
+              title="Execution Time"
+            >
+              <Zap size={11} style={{ opacity: 0.8 }} />
+              <b>{formattedTime}</b>
             </span>
-            <span className="dim">·</span>
-            <span className="stat">
-              <Check size={11} style={{ color: "var(--accent)" }} /> success
-            </span>
-          </React.Fragment>
+            {sizeFormatted && sizeFormatted !== "0 B" && (
+              <span className="meta-pill" title="Data Processed">
+                <b>{sizeFormatted}</b>
+              </span>
+            )}
+          </div>
         )}
 
         <div className="grow" />
@@ -245,11 +254,16 @@ const ResultSection: React.FC<ResultSectionProps> = ({
                 {columns.map((c: any, i: number) => {
                   const key = typeof c === "object" ? c.key : c;
                   const label = typeof c === "object" ? c.label : c;
-                  const type = typeof c === "object" ? c.type : "";
+                  let rawType = typeof c === "object" ? c.type : "";
+                  let displayType = "";
+                  if (rawType) {
+                    displayType = String(rawType).toUpperCase();
+                    if (displayType === "OBJECT") displayType = "JSON";
+                  }
                   return (
                     <th key={key || i}>
-                      {label}
-                      {type && <span className="col-type">{type}</span>}
+                      <span style={{ marginRight: 4 }}>{label}</span>
+                      {displayType && <span className="col-type">{displayType}</span>}
                     </th>
                   );
                 })}
@@ -267,8 +281,9 @@ const ResultSection: React.FC<ResultSectionProps> = ({
                     const key = typeof c === "object" ? c.key : c;
                     const label = typeof c === "object" ? c.label : c;
                     const val = row[key];
+                    const isNull = val === null || val === undefined;
                     const isNum = typeof val === "number";
-                    const isObj = val !== null && typeof val === "object";
+                    const isObj = !isNull && typeof val === "object";
 
                     let isJsonStr = false;
                     let parsedObj = val;
@@ -286,7 +301,9 @@ const ResultSection: React.FC<ResultSectionProps> = ({
                     const isComplex = isObj || isJsonStr;
 
                     let displayVal: string | React.ReactNode = "";
-                    if (isNum) {
+                    if (isNull) {
+                      displayVal = <span className="null-val">null</span>;
+                    } else if (isNum) {
                       displayVal = val.toLocaleString("en-US", {
                         minimumFractionDigits: Number.isInteger(val) ? 0 : 2,
                         maximumFractionDigits: 2,
@@ -324,9 +341,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({
                         </div>
                       );
                     } else {
-                      displayVal = String(
-                        val === null || val === undefined ? "" : val,
-                      );
+                      displayVal = String(val);
                     }
 
                     return (
