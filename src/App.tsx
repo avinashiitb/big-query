@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import DbQueryPage from './views/DbQueryPage';
+import DbQueryPreviewPage from './views/DbQueryPreviewPage';
 import { ipc } from './ipc';
 
 interface AppProps {
@@ -16,6 +17,45 @@ function App({
   theme = "light",
   layout = "top-bottom",
 }: AppProps) {
+  const isPreview = useMemo(() => {
+    try {
+      const url = new URL(window.location.href);
+      let p = url.searchParams.get("preview");
+      if (!p && window.location.hash.includes("?")) {
+        const hashParams = new URLSearchParams(window.location.hash.split("?")[1]);
+        p = hashParams.get("preview");
+      }
+      return p === "true";
+    } catch (e) {
+      return false;
+    }
+  }, []);
+
+  const [previewData, setPreviewData] = useState<any>(null);
+
+  // Listen for initial load and messages in preview mode
+  useEffect(() => {
+    if (!isPreview) return;
+
+    const handleMessage = (e: MessageEvent) => {
+      if (!e.data) return;
+
+      if (e.data.type === 'LOAD_PREVIEW') {
+        const savedData = e.data.data;
+        setPreviewData(savedData);
+        if (savedData && typeof savedData === 'object') {
+          if (savedData.selectedConnectionId) setSelectedConnectionId(savedData.selectedConnectionId);
+          if (savedData.selectedDatabase) setSelectedDatabase(savedData.selectedDatabase);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    // Notify parent frame that preview is ready
+    (window as any).parent?.postMessage({ type: 'PREVIEW_READY' }, '*');
+
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isPreview]);
 
   const getFileId = () => {
     let id = (window as any).pluginAPI?.context?.fileId;
@@ -137,19 +177,29 @@ function App({
 
   return (
     <div className="plugin-container">
-      <DbQueryPage
-        fileId={fileId}
-        connections={connections}
-        selectedConnectionId={selectedConnectionId}
-        setSelectedConnectionId={setSelectedConnectionId}
-        selectedDatabase={selectedDatabase}
-        setSelectedDatabase={setSelectedDatabase}
-        onRefreshConnections={loadConnections}
-        theme={localTheme}
-        onToggleTheme={() => setLocalTheme(prev => prev === 'light' ? 'dark' : 'light')}
-        layout={localLayout}
-        onToggleLayout={() => setLocalLayout(prev => prev === 'top-bottom' ? 'side-by-side' : 'top-bottom')}
-      />
+      {isPreview ? (
+        <DbQueryPreviewPage
+          selectedConnectionId={selectedConnectionId}
+          selectedDatabase={selectedDatabase}
+          previewData={previewData}
+          theme={localTheme}
+          fileId={fileId}
+        />
+      ) : (
+        <DbQueryPage
+          fileId={fileId}
+          connections={connections}
+          selectedConnectionId={selectedConnectionId}
+          setSelectedConnectionId={setSelectedConnectionId}
+          selectedDatabase={selectedDatabase}
+          setSelectedDatabase={setSelectedDatabase}
+          onRefreshConnections={loadConnections}
+          theme={localTheme}
+          onToggleTheme={() => setLocalTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          layout={localLayout}
+          onToggleLayout={() => setLocalLayout(prev => prev === 'top-bottom' ? 'side-by-side' : 'top-bottom')}
+        />
+      )}
     </div>
   );
 }

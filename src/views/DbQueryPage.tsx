@@ -174,7 +174,7 @@ const DbQueryPage: React.FC<DbQueryPageProps> = ({
         const updatedContents = {
           version: "1.0.0",
           time: Date.now(),
-          blocks: [{ type: "data-bridge", data: payloadData }],
+          blocks: [{ type: "bigquery", data: payloadData }],
           parent_file: fileId,
           _id: contentDoc?._id,
         };
